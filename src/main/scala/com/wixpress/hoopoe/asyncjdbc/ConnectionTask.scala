@@ -2,6 +2,7 @@ package com.wixpress.hoopoe.asyncjdbc
 
 import java.sql.Connection
 import concurrent.Promise
+import util.{Failure, Success, Try}
 
 /**
  * 
@@ -12,16 +13,20 @@ class ConnectionTask[T](val doWithConnection: (Connection => T)) extends AsyncTa
 
   val promise: Promise[T] = Promise[T]()
 
-  def failed(exception: Throwable) {
+  def failed(exception: Exception) {
     promise.failure(exception)
   }
 
-  def run(connection: Connection) {
+  def run(connection: Connection): OptionalError = {
     try {
       promise.success(doWithConnection(connection))
+      ok
     }
     catch {
-      case e: Throwable => promise.failure(e)
+      case e: Exception => {
+        promise.failure(e)
+        Error(e)
+      }
     }
   }
 

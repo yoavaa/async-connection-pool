@@ -13,76 +13,96 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
                        val jdbcUrl: String,
                        val user: String,
                        val password: String,
-                       val validateConnection: (Connection => Boolean) ) extends Thread {
+                       val preTaskConnectionTester: ((Connection, OptionalError) => Boolean),
+                       val postTaskConnectionTester: ((Connection, OptionalError) => Boolean)) extends Thread {
 
   var stopped = false
 
   // todo cancel support
   // todo metrics support
   override def run {
-    var connection: Try[Connection] = aquireConnection
+    var connStatus: ConnectionStatus = aquireConnection()
     while (!stopped) {
       val task = aquireTask()
       task match {
         case connTask: ConnectionTask[_] => {
-          connection = ensureConnected(connection)
-          connection match {
-            case Failure(e) => connectionError(e, connTask)
-            case Success(conn) => handleTask(conn, connTask)
+          connStatus = preTaskConnectionHook(connStatus)
+          connStatus match {
+            case FailedToConnect(e) => connectionError(e, connTask)
+            case Connected(conn, _) => connStatus = handleTask(conn, connTask)
           }
+          connStatus = postTaskConnectionHook(connStatus)
         }
         case stopTask: StopTask => stopped = true
       }
     }
-    clearConnection(connection)
+    clearConnection(connStatus)
 
   }
 
-  def connectionError(exception: Throwable, task: ConnectionTask[_]) {
+  def connectionError(exception: Exception, task: ConnectionTask[_]) {
     task.failed(exception)
   }
 
-  def handleTask(connection: Connection, task: ConnectionTask[_]) {
-    task.run(connection)
+  def handleTask(connection: Connection, task: ConnectionTask[_]): ConnectionStatus = {
+    val lastTaskError = task.run(connection)
+    Connected(connection, lastTaskError)
   }
 
-  def ensureConnected(connTry: Try[Connection]): Try[Connection] = {
-    connTry match {
-      case Failure(e) => aquireConnection
-      case Success(conn) => {
-        if (validateConnection(conn))
-          Success(conn)
+  def postTaskConnectionHook(connStatus: ConnectionStatus): ConnectionStatus = {
+    connStatus match {
+      case FailedToConnect(e) => aquireConnection()
+      case Connected(conn, lastTaskError) => {
+        if (postTaskConnectionTester(conn, lastTaskError))
+          connStatus
         else {
-          clearConnection(connTry)
-          aquireConnection
+          clearConnection(conn)
+          aquireConnection()
         }
       }
     }
   }
 
-  def clearConnection(connTry: Try[Connection]) {
-    connTry match {
-      case Success(connection) => {
-        try {
-          connection.close()
-        }
-        catch {
-          case e: SQLException =>
+  def preTaskConnectionHook(connStatus: ConnectionStatus): ConnectionStatus = {
+    connStatus match {
+      case FailedToConnect(e) => aquireConnection()
+      case Connected(conn, lastTaskError) => {
+        if (preTaskConnectionTester(conn, lastTaskError))
+          connStatus
+        else {
+          clearConnection(conn)
+          aquireConnection()
         }
       }
+    }
+  }
+
+  def clearConnection(connTry: ConnectionStatus) {
+    connTry match {
+      case Connected(connection, _) => clearConnection(connection)
       case _ =>
     }
   }
 
-  def aquireConnection: Try[Connection] = {
+
+  def clearConnection(connection: Connection) {
     try {
-      Success(DriverManager.getConnection(jdbcUrl, user, password))
+      connection.close()
     }
     catch {
-      case e: SQLException => Failure(e)
+      case e: SQLException =>
+    }
+  }
+
+  def aquireConnection(): ConnectionStatus = {
+    try {
+      Connected(DriverManager.getConnection(jdbcUrl, user, password))
+    }
+    catch {
+      case e: SQLException => FailedToConnect(e)
       case e: InterruptedException => {
         stopped = true
-        Failure(e)
+        FailedToConnect(e)
       }
     }
   }
@@ -96,13 +116,22 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     }
   }
 
-  def shutdown {
+  def shutdown() {
     queue.add(new StopTask)
   }
 
-  def shutdownNow {
+  def shutdownNow() {
     this.interrupt()
     queue.add(new StopTask)
     stopped = true
   }
 }
+
+//case class ConnectionStatus(conn: Try[Connection], lastTaskError: OptionalError)
+
+trait ConnectionStatus
+case class Connected(conn: Connection, lastTaskError: OptionalError) extends ConnectionStatus
+object Connected {
+  def apply(conn: Connection): Connected = this(conn, ok)
+}
+case class FailedToConnect(error: Exception) extends ConnectionStatus
