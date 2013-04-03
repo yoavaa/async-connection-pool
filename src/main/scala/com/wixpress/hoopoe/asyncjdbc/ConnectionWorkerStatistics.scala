@@ -79,7 +79,7 @@ class ConnectionWorkerMeter(val timeSource: () => Long = () => System.currentTim
     val working, sleeping, overhead = Value
   }
 
-  case class Counters(overheadTime: Long = 0,
+  private[ConnectionWorkerMeter] case class Counters(overheadTime: Long = 0,
                       sleepTime: Long = 0,
                       workTime: Long = 0,
                       errorCount: Int = 0,
