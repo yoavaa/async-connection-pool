@@ -7,32 +7,46 @@ import java.util.concurrent.atomic.AtomicReference
  * @author Yoav
  * @since 4/3/13
  */
-class ConnectionWorkerMeter(val timeSource: () => Long = () => System.currentTimeMillis()) {
+class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentTimeMillis()) {
 
-  val atomicCounters = new AtomicReference(new Counters)
+  // thread-safe
+  private val atomicCounters = new AtomicReference(new Counters)
+  // non-thread-safe (no need to make it thread safe)
+  private var lastWaitOnQueueStart: Millis = 0
+  private var lastWaitOnQueueTime: Millis = 0
 
+  // thread-safe
   def startTask() {
     flushState(State.working, false)
   }
 
+  // thread-safe
   def taskCompleted(error: OptionalError) {
     flushState(State.overhead, error.isError)
   }
 
+  // thread-safe
   def startWaitingOnQueue() {
     flushState(State.sleeping, false)
+    lastWaitOnQueueStart = timeSource()
   }
 
+  // thread-safe
   def completedWaitingOnQueue() {
     flushState(State.overhead, false)
+    lastWaitOnQueueTime = timeSource() - lastWaitOnQueueStart
+    lastWaitOnQueueStart = 0
   }
 
+  def getLastWaitOnQueueTime: Millis = lastWaitOnQueueTime
+
+  // thread-safe
   def snapshot: ConnectionWorkerStatistics = {
     val currentCounter = snapshotCounter
     val now = timeSource()
-    var workingTime: Long = currentCounter.workTime
-    var overheadTime: Long = currentCounter.overheadTime
-    var sleepingTime: Long = currentCounter.sleepTime
+    var workingTime: Millis = currentCounter.workTime
+    var overheadTime: Millis = currentCounter.overheadTime
+    var sleepingTime: Millis = currentCounter.sleepTime
     currentCounter.state match {
       case State.working => workingTime = workingTime + now - currentCounter.lastStateChange
       case State.overhead => overheadTime = overheadTime + now - currentCounter.lastStateChange
@@ -79,14 +93,14 @@ class ConnectionWorkerMeter(val timeSource: () => Long = () => System.currentTim
     val working, sleeping, overhead = Value
   }
 
-  private[ConnectionWorkerMeter] case class Counters(overheadTime: Long = 0,
-                      sleepTime: Long = 0,
-                      workTime: Long = 0,
+  private[ConnectionWorkerMeter] case class Counters(overheadTime: Millis = 0,
+                      sleepTime: Millis = 0,
+                      workTime: Millis = 0,
                       errorCount: Int = 0,
                       state: State.State = State.overhead,
-                      lastStateChange: Long = timeSource()
+                      lastStateChange: Millis = timeSource()
                        )
 
 }
 
-case class ConnectionWorkerStatistics(workTime: Long, overheadTime: Long, sleepTime: Long, errorCount: Int)
+case class ConnectionWorkerStatistics(workTime: Millis, overheadTime: Millis, sleepTime: Millis, errorCount: Int)

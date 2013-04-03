@@ -2,7 +2,6 @@ package com.wixpress.hoopoe.asyncjdbc
 
 import java.sql.{SQLException, DriverManager, Connection}
 import java.util.concurrent.BlockingQueue
-import util.{Failure, Success, Try}
 
 /**
  * 
@@ -13,8 +12,8 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
                        val jdbcUrl: String,
                        val user: String,
                        val password: String,
-                       val preTaskConnectionTester: ((Connection, OptionalError) => Boolean),
-                       val postTaskConnectionTester: ((Connection, OptionalError) => Boolean)) extends Thread {
+                       val connectionTester: ConnectionTester,
+                       val meter: ConnectionWorkerMeter) extends Thread {
 
   var stopped = false
 
@@ -45,7 +44,9 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
   }
 
   def handleTask(connection: Connection, task: ConnectionTask[_]): ConnectionStatus = {
+    meter.startTask()
     val lastTaskError = task.run(connection)
+    meter.taskCompleted(lastTaskError)
     Connected(connection, lastTaskError)
   }
 
@@ -53,7 +54,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
-        if (postTaskConnectionTester(conn, lastTaskError))
+        if (connectionTester.postTaskTest(conn, lastTaskError))
           connStatus
         else {
           clearConnection(conn)
@@ -67,7 +68,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
-        if (preTaskConnectionTester(conn, lastTaskError))
+        if (connectionTester.preTaskTest(conn, lastTaskError, meter.getLastWaitOnQueueTime))
           connStatus
         else {
           clearConnection(conn)
@@ -109,10 +110,17 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
 
   def aquireTask(): AsyncTask = {
     try {
-      queue.take()
+      meter.startWaitingOnQueue()
+      val task = queue.take()
+      meter.completedWaitingOnQueue()
+      task
     }
     catch {
-      case e: InterruptedException => new StopTask()
+      case e: InterruptedException => {
+        val task = new StopTask()
+        meter.completedWaitingOnQueue()
+        task
+      }
     }
   }
 
@@ -126,8 +134,6 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     stopped = true
   }
 }
-
-//case class ConnectionStatus(conn: Try[Connection], lastTaskError: OptionalError)
 
 trait ConnectionStatus
 case class Connected(conn: Connection, lastTaskError: OptionalError) extends ConnectionStatus
