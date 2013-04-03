@@ -8,8 +8,8 @@ import org.mockito.Mockito._
 import concurrent.duration.Duration
 import concurrent.Await
 import scala.Some
-import util.{Failure, Success}
 import org.mockito.Matchers
+import scala.util.{Failure, Success}
 
 /**
  * 

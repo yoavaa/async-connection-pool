@@ -5,6 +5,14 @@ package com.wixpress.hoopoe.asyncjdbc
  * @author Yoav
  * @since 4/2/13
  */
-class OptionalError
-case object ok extends OptionalError
-case class Error(exception: Exception) extends OptionalError
+trait OptionalError {
+  def isError: Boolean
+}
+
+case object ok extends OptionalError{
+  def isError = false
+}
+case class Error(exception: Exception) extends OptionalError{
+  def isError = true
+}
+
