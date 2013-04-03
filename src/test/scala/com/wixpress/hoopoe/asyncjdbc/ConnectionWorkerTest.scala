@@ -145,7 +145,7 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
       testCode(worker, queue)
     }
     finally {
-      worker.shutdown;
+      worker.shutdown()
       worker.join()
     }
   }

@@ -19,7 +19,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
 
   // todo cancel support
   // todo metrics support
-  override def run {
+  override def run() {
     var connStatus: ConnectionStatus = aquireConnection()
     while (!stopped) {
       val task = aquireTask()
