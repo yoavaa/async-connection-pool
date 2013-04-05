@@ -1,6 +1,7 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.util.concurrent.atomic.AtomicReference
+import com.wixpress.hoopoe.asyncjdbc._
 
 /**
  * 

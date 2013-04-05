@@ -1,4 +1,4 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers

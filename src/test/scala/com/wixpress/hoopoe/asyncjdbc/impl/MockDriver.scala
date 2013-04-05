@@ -1,4 +1,4 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.sql._
 import java.util.Properties
@@ -44,9 +44,9 @@ class MockDriver extends Driver {
 
   def mockUrl = "jdbc:mock:mock"
 
-  def enable {enabled = true}
+  def enable() {enabled = true}
 
-  def disable {enabled = false}
+  def disable() {enabled = false}
 
 }
 

@@ -1,4 +1,4 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import org.scalatest.{BeforeAndAfter, FlatSpec}
 import org.scalatest.matchers.ShouldMatchers
@@ -7,9 +7,11 @@ import java.sql.{SQLException, Connection}
 import org.mockito.Mockito._
 import concurrent.duration.Duration
 import concurrent.Await
-import scala.Some
 import org.mockito.Matchers
-import scala.util.{Failure, Success}
+import util.Failure
+import scala.Some
+import util.Success
+import com.wixpress.hoopoe.asyncjdbc.ConnectionTester
 
 /**
  * 

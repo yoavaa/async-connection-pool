@@ -1,5 +1,6 @@
 package com.wixpress.hoopoe.asyncjdbc
 
+import impl.OptionalError
 import java.sql.Connection
 
 /**

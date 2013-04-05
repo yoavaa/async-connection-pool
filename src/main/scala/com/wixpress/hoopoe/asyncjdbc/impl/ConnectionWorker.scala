@@ -1,7 +1,8 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.sql.{SQLException, DriverManager, Connection}
 import java.util.concurrent.BlockingQueue
+import com.wixpress.hoopoe.asyncjdbc._
 
 /**
  * 
@@ -18,7 +19,6 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
   var stopped = false
 
   // todo cancel support
-  // todo metrics support
   override def run() {
     var connStatus: ConnectionStatus = aquireConnection()
     while (!stopped) {

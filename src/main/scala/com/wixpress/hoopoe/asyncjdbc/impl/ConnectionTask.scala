@@ -1,8 +1,7 @@
-package com.wixpress.hoopoe.asyncjdbc
+package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.sql.Connection
 import concurrent.Promise
-import util.{Failure, Success, Try}
 
 /**
  * 
