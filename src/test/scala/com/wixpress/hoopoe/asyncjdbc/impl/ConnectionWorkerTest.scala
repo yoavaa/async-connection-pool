@@ -137,7 +137,7 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
     val future = task.promise.future
     Await.ready(future, futureWaitDuration)
 
-    verify(connectionWorkerMeter, times(2)).startWaitingOnQueue()
+    verify(connectionWorkerMeter, atLeastOnce()).startWaitingOnQueue()
     verify(connectionWorkerMeter).completedWaitingOnQueue()
     verify(connectionWorkerMeter).startTask()
     verify(connectionWorkerMeter).taskCompleted(ok)
