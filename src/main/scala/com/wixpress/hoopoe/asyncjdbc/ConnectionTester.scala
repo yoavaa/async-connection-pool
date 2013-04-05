@@ -1,6 +1,5 @@
 package com.wixpress.hoopoe.asyncjdbc
 
-import impl.OptionalError
 import java.sql.Connection
 
 /**
@@ -9,6 +8,11 @@ import java.sql.Connection
  * @since 4/3/13
  */
 trait ConnectionTester {
-  def preTaskTest(conn: Connection, lastError: OptionalError, idleTime: Millis): Boolean
-  def postTaskTest(conn: Connection, lastError: OptionalError): Boolean
+  def preTaskTest(conn: Connection, lastError: OptionalError, idleTime: Millis): ConnectionTestResult.Value
+  def postTaskTest(conn: Connection, lastError: OptionalError): ConnectionTestResult.Value
+}
+
+object ConnectionTestResult extends Enumeration {
+  val ok, invalid = Value
+
 }

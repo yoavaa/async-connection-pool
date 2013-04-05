@@ -2,6 +2,7 @@ package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.sql.Connection
 import concurrent.Promise
+import com.wixpress.hoopoe.asyncjdbc.{Error, ok, OptionalError}
 
 /**
  * 

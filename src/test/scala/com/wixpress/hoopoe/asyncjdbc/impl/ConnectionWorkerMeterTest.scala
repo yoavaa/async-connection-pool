@@ -2,6 +2,8 @@ package com.wixpress.hoopoe.asyncjdbc.impl
 
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
+import com.wixpress.hoopoe.asyncjdbc.{Error, ok}
+import scala.Error
 
 /**
  * 

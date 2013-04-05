@@ -8,10 +8,11 @@ import org.mockito.Mockito._
 import concurrent.duration.Duration
 import concurrent.Await
 import org.mockito.Matchers
+import com.wixpress.hoopoe.asyncjdbc._
 import util.Failure
 import scala.Some
 import util.Success
-import com.wixpress.hoopoe.asyncjdbc.ConnectionTester
+import com.wixpress.hoopoe.asyncjdbc.Error
 
 /**
  * 
@@ -28,8 +29,10 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
 
   before {
     reset(connectionTester, connectionWorkerMeter)
-    when(connectionTester.preTaskTest(Matchers.any[Connection], Matchers.any[OptionalError], Matchers.any[Long])).thenReturn(true)
-    when(connectionTester.postTaskTest(Matchers.any[Connection], Matchers.any[OptionalError])).thenReturn(true)
+    when(connectionTester.preTaskTest(Matchers.any[Connection], Matchers.any[OptionalError], Matchers.any[Long]))
+      .thenReturn(ConnectionTestResult.ok)
+    when(connectionTester.postTaskTest(Matchers.any[Connection], Matchers.any[OptionalError]))
+      .thenReturn(ConnectionTestResult.ok)
     when(connectionWorkerMeter.getLastWaitOnQueueTime).thenReturn(0)
   }
 
@@ -111,7 +114,8 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
     verify(connectionTester).preTaskTest(mockDriver.connection, ok, 0)
 
 //    reset(preTaskTestConnection)
-    when(connectionTester.preTaskTest(Matchers.any[Connection], Matchers.any[OptionalError], Matchers.any[Long])).thenReturn(false)
+    when(connectionTester.preTaskTest(Matchers.any[Connection], Matchers.any[OptionalError], Matchers.any[Long]))
+      .thenReturn(ConnectionTestResult.invalid)
 
     queue.add(task2)
     val future2 = task2.promise.future
@@ -153,12 +157,12 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
   }
 
   def withDisabledConnection(testCode: () => Any) {
-    mockDriver.disable
+    mockDriver.disable()
     try {
       testCode()
     }
     finally {
-      mockDriver.enable
+      mockDriver.enable()
     }
   }
 }

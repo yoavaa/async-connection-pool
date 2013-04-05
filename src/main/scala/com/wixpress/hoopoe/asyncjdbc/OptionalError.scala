@@ -1,4 +1,4 @@
-package com.wixpress.hoopoe.asyncjdbc.impl
+package com.wixpress.hoopoe.asyncjdbc
 
 /**
  * 

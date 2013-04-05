@@ -5,7 +5,7 @@ import java.util.concurrent.BlockingQueue
 import com.wixpress.hoopoe.asyncjdbc._
 
 /**
- * 
+ *
  * @author Yoav
  * @since 3/27/13
  */
@@ -54,11 +54,12 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
-        if (connectionTester.postTaskTest(conn, lastTaskError))
-          connStatus
-        else {
-          clearConnection(conn)
-          aquireConnection()
+        connectionTester.postTaskTest(conn, lastTaskError) match {
+          case ConnectionTestResult.ok => connStatus
+          case _ => {
+            clearConnection(conn)
+            aquireConnection()
+          }
         }
       }
     }
@@ -68,11 +69,12 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
-        if (connectionTester.preTaskTest(conn, lastTaskError, meter.getLastWaitOnQueueTime))
-          connStatus
-        else {
-          clearConnection(conn)
-          aquireConnection()
+        connectionTester.preTaskTest(conn, lastTaskError, meter.getLastWaitOnQueueTime) match {
+          case ConnectionTestResult.ok => connStatus
+          case _ => {
+            clearConnection(conn)
+            aquireConnection()
+          }
         }
       }
     }
