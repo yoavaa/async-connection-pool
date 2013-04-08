@@ -20,7 +20,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
 
   // todo cancel support
   override def run() {
-    var connStatus: ConnectionStatus = aquireConnection()
+    var connStatus: ConnectionTry = aquireConnection()
     while (!stopped) {
       val task = aquireTask()
       task match {
@@ -43,14 +43,14 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     task.failed(exception)
   }
 
-  def handleTask(connection: Connection, task: ConnectionTask[_]): ConnectionStatus = {
+  def handleTask(connection: Connection, task: ConnectionTask[_]): ConnectionTry = {
     meter.startTask()
     val lastTaskError = task.run(connection)
     meter.taskCompleted(lastTaskError)
     Connected(connection, lastTaskError)
   }
 
-  def postTaskConnectionHook(connStatus: ConnectionStatus): ConnectionStatus = {
+  def postTaskConnectionHook(connStatus: ConnectionTry): ConnectionTry = {
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
@@ -65,7 +65,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     }
   }
 
-  def preTaskConnectionHook(connStatus: ConnectionStatus): ConnectionStatus = {
+  def preTaskConnectionHook(connStatus: ConnectionTry): ConnectionTry = {
     connStatus match {
       case FailedToConnect(e) => aquireConnection()
       case Connected(conn, lastTaskError) => {
@@ -80,7 +80,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     }
   }
 
-  def clearConnection(connTry: ConnectionStatus) {
+  def clearConnection(connTry: ConnectionTry) {
     connTry match {
       case Connected(connection, _) => clearConnection(connection)
       case _ =>
@@ -97,7 +97,7 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     }
   }
 
-  def aquireConnection(): ConnectionStatus = {
+  def aquireConnection(): ConnectionTry = {
     try {
       Connected(DriverManager.getConnection(jdbcUrl, user, password))
     }
@@ -137,9 +137,9 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
   }
 }
 
-trait ConnectionStatus
-case class Connected(conn: Connection, lastTaskError: OptionalError) extends ConnectionStatus
+trait ConnectionTry
+case class Connected(conn: Connection, lastTaskError: OptionalError) extends ConnectionTry
 object Connected {
   def apply(conn: Connection): Connected = this(conn, ok)
 }
-case class FailedToConnect(error: Exception) extends ConnectionStatus
+case class FailedToConnect(error: Exception) extends ConnectionTry
