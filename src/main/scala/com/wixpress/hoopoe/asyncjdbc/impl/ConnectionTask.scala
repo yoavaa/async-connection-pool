@@ -1,7 +1,7 @@
 package com.wixpress.hoopoe.asyncjdbc.impl
 
 import java.sql.Connection
-import concurrent.Promise
+import concurrent.{Future, Promise}
 import com.wixpress.hoopoe.asyncjdbc.{Error, ok, OptionalError}
 
 /**
@@ -12,6 +12,8 @@ import com.wixpress.hoopoe.asyncjdbc.{Error, ok, OptionalError}
 class ConnectionTask[T](val doWithConnection: (Connection => T)) extends AsyncTask {
 
   val promise: Promise[T] = Promise[T]()
+
+  def future: Future[T] = promise.future
 
   def failed(exception: Exception) {
     promise.failure(exception)
