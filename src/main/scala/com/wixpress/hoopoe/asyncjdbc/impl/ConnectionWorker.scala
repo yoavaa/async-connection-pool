@@ -17,6 +17,8 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
                        val meter: ConnectionWorkerMeter) extends Thread {
 
   var stopped = false
+  var runningTask = false
+
 
   // todo cancel support
   override def run() {
@@ -41,8 +43,10 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
   }
 
   def handleTask(connection: Connection, task: ConnectionTask[_]): ConnectionTry = {
+    runningTask = true
     meter.startTask()
     val lastTaskError = task.run(connection)
+    runningTask = false
     meter.taskCompleted(lastTaskError)
     Connected(connection, lastTaskError)
   }
@@ -123,6 +127,12 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
   }
 
   def shutdown() {
+    stopped = true
+    if (!runningTask)
+      this.interrupt()
+  }
+
+  def shutdownNow() {
     stopped = true
     this.interrupt()
   }
