@@ -9,7 +9,7 @@ import com.wixpress.hoopoe.asyncjdbc.{Error, ok, OptionalError}
  * @author Yoav
  * @since 3/27/13
  */
-class ConnectionTask[T](val doWithConnection: (Connection => T)) extends AsyncTask {
+class ConnectionTask[T](val doWithConnection: (Connection => T)) {
 
   val promise: Promise[T] = Promise[T]()
 

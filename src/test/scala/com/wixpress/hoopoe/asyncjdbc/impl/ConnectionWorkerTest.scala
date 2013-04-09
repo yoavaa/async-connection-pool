@@ -143,8 +143,8 @@ class ConnectionWorkerTest extends FlatSpec with ShouldMatchers with BeforeAndAf
     verify(connectionWorkerMeter).taskCompleted(ok)
   }
 
-  def withWorker(testCode: (ConnectionWorker, BlockingQueue[AsyncTask]) => Any) {
-    val queue = new LinkedBlockingQueue[AsyncTask]
+  def withWorker(testCode: (ConnectionWorker, BlockingQueue[ConnectionTask[_]]) => Any) {
+    val queue = new LinkedBlockingQueue[ConnectionTask[_]]
     val worker = new ConnectionWorker(queue, mockDriver.mockUrl, "", "", connectionTester, connectionWorkerMeter)
     worker.start()
     try {

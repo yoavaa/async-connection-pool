@@ -9,7 +9,7 @@ import com.wixpress.hoopoe.asyncjdbc._
  * @author Yoav
  * @since 3/27/13
  */
-class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
+class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
                        val jdbcUrl: String,
                        val user: String,
                        val password: String,
@@ -23,17 +23,14 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     var connStatus: ConnectionTry = aquireConnection()
     while (!stopped) {
       val task = aquireTask()
-      task match {
-        case connTask: ConnectionTask[_] => {
+      task.map({connTask =>
           connStatus = preTaskConnectionHook(connStatus)
           connStatus match {
             case FailedToConnect(e) => connectionError(e, connTask)
             case Connected(conn, _) => connStatus = handleTask(conn, connTask)
           }
           connStatus = postTaskConnectionHook(connStatus)
-        }
-        case stopTask: StopTask => stopped = true
-      }
+        })
     }
     clearConnection(connStatus)
 
@@ -110,18 +107,17 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
     }
   }
 
-  def aquireTask(): AsyncTask = {
+  def aquireTask(): Option[ConnectionTask[_]] = {
     try {
       meter.startWaitingOnQueue()
       val task = queue.take()
       meter.completedWaitingOnQueue()
-      task
+      Some(task)
     }
     catch {
       case e: InterruptedException => {
-        val task = new StopTask()
         meter.completedWaitingOnQueue()
-        task
+        None
       }
     }
   }
