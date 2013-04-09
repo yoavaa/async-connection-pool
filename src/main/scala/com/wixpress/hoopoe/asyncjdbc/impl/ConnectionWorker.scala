@@ -127,13 +127,8 @@ class ConnectionWorker(val queue: BlockingQueue[AsyncTask],
   }
 
   def shutdown() {
-    queue.add(new StopTask)
-  }
-
-  def shutdownNow() {
-    this.interrupt()
-    queue.add(new StopTask)
     stopped = true
+    this.interrupt()
   }
 }
 
