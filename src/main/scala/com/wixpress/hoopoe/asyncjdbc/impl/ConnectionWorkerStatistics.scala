@@ -150,4 +150,7 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
 
 }
 
-case class ConnectionWorkerStatistics(workTime: Millis, overheadTime: Millis, sleepTime: Millis, errorCount: Int)
+case class ConnectionWorkerStatistics(workTime: Millis,
+                                      overheadTime: Millis,
+                                      sleepTime: Millis,
+                                      errorCount: Int)
