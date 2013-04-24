@@ -153,4 +153,13 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
 case class ConnectionWorkerStatistics(workTime: Millis,
                                       overheadTime: Millis,
                                       sleepTime: Millis,
-                                      errorCount: Int)
+                                      errorCount: Int) {
+  def plus(that: ConnectionWorkerStatistics): ConnectionWorkerStatistics = {
+    ConnectionWorkerStatistics(workTime + that.workTime,
+      overheadTime + that.overheadTime,
+      sleepTime + that.sleepTime,
+      errorCount + that.errorCount)
+  }
+
+  lazy val loadPercent: Double = 1.0 * (workTime + overheadTime) / (workTime + overheadTime + sleepTime)
+}
