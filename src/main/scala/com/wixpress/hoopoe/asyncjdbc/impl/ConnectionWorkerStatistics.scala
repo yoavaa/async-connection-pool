@@ -70,17 +70,9 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
   private def snapshotCounter: Counters = {
     var currentCounter: Counters = null
     var newCounter: Counters = null
-    var attempt = 1
     do {
-      lockOnSubsequentAttempt(attempt)
-      try {
-        currentCounter = atomicCounters.get()
-        newCounter = Counters(state = currentCounter.state)
-      }
-      finally {
-        releaseOnSubsequentAttempt(attempt)
-        attempt = attempt + 1
-      }
+      currentCounter = atomicCounters.get()
+      newCounter = Counters(state = currentCounter.state)
     } while (!atomicCounters.compareAndSet(currentCounter, newCounter))
     val current = currentCounter
     current
@@ -100,39 +92,21 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
     val now = timeSource()
     var counters: Counters = null
     var newCounters: Counters = null
-    var attempt = 1
     do {
-      lockOnSubsequentAttempt(attempt)
-      try {
-        counters = atomicCounters.get
-        var overheadTime = counters.overheadTime
-        var sleepTime = counters.sleepTime
-        var workTime = counters.workTime
-        var errorCount = counters.errorCount
-        counters.state match {
-          case State.overhead => overheadTime = overheadTime + (now-counters.lastStateChange)
-          case State.sleeping => sleepTime = sleepTime + (now-counters.lastStateChange)
-          case State.working => workTime = workTime + (now-counters.lastStateChange)
-        }
-        if (hasError)
-          errorCount = errorCount + 1
-        newCounters = Counters(overheadTime, sleepTime, workTime, errorCount, newState, timeSource())
+      counters = atomicCounters.get
+      var overheadTime = counters.overheadTime
+      var sleepTime = counters.sleepTime
+      var workTime = counters.workTime
+      var errorCount = counters.errorCount
+      counters.state match {
+        case State.overhead => overheadTime = overheadTime + (now-counters.lastStateChange)
+        case State.sleeping => sleepTime = sleepTime + (now-counters.lastStateChange)
+        case State.working => workTime = workTime + (now-counters.lastStateChange)
       }
-      finally {
-        releaseOnSubsequentAttempt(attempt)
-        attempt = attempt + 1
-      }
+      if (hasError)
+        errorCount = errorCount + 1
+      newCounters = Counters(overheadTime, sleepTime, workTime, errorCount, newState, timeSource())
     } while (!atomicCounters.compareAndSet(counters, newCounters))
-  }
-
-  private def lockOnSubsequentAttempt(attempt: Int) {
-    if (attempt > 1)
-      lock.lock()
-  }
-
-  private def releaseOnSubsequentAttempt(attempt: Int) {
-    if (attempt > 1)
-      lock.unlock()
   }
 
   private[ConnectionWorkerMeter] object State extends Enumeration {

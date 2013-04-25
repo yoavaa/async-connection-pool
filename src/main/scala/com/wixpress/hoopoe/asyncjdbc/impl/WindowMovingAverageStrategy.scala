@@ -23,17 +23,19 @@ class WindowMovingAverageStrategy(val minPoolSize: Int,
   def addSnapshot(stats: Seq[ConnectionWorkerStatistics]) {
     val currentSnapshot: PoolSnapshot = stats.foldLeft(PoolSnapshot())((poolSnapshot, workerSnapshot) => poolSnapshot.plus(workerSnapshot))
     currentSize = currentSnapshot.workers
-    if (expandWindow.length > expandWindowSize)
-    expandWindow.dequeue()
+    if (expandWindow.length >= expandWindowSize)
+      expandWindow.dequeue()
     expandWindow.enqueue(currentSnapshot)
-    if (contractWindow.length > contractWindowSize)
+    if (contractWindow.length >= contractWindowSize)
       contractWindow.dequeue()
     contractWindow.enqueue(currentSnapshot)
   }
 
   def calculateNewSize(): Int = {
     currentSize =
-      if (currentSize < maxPoolSize && expandWindowLoad > expandThreshold)
+      if (expandWindow.size == 0 && contractWindow.size == 0)
+        minPoolSize
+      else if (currentSize < maxPoolSize && expandWindowLoad > expandThreshold)
         currentSize + 1
       else if (currentSize > minPoolSize && contractWindowLoad < contractThreshold)
         currentSize - 1

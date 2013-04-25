@@ -1,6 +1,6 @@
 package com.wixpress.hoopoe.asyncjdbc.impl
 
-import collection.{mutable, immutable}
+import collection.{immutable}
 import com.wixpress.hoopoe.asyncjdbc.ResizeStrategy
 
 
