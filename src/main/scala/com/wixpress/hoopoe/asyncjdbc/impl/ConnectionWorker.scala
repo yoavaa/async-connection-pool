@@ -13,11 +13,11 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
                        val jdbcUrl: String,
                        val user: String,
                        val password: String,
-                       val connectionTester: ConnectionTester) extends Thread {
+                       val connectionTester: ConnectionTester,
+                       val meter: ConnectionWorkerMeter = new ConnectionWorkerMeter) extends Thread {
 
   var stopped = false
   var runningTask = false
-  val meter = new ConnectionWorkerMeter
 
 
   // todo cancel support
