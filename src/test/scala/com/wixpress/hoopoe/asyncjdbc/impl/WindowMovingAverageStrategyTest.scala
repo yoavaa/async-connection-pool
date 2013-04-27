@@ -8,10 +8,7 @@ import org.scalatest.matchers.ShouldMatchers
  * @author Yoav
  * @since 3/27/13
  */
-class WindowMovingAverageStrategyTest extends FlatSpec with ShouldMatchers with BeforeAndAfter {
-
-  before {
-  }
+class WindowMovingAverageStrategyTest extends FlatSpec with ShouldMatchers {
 
   "WindowMovingAverageStrategy" should "report 5 when current size is 5 and load is steady 50%" in {
     val strategy = new WindowMovingAverageStrategy(2, 8, 3, 3, 0.8, 0.2)

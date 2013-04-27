@@ -14,7 +14,9 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
                        val user: String,
                        val password: String,
                        val connectionTester: ConnectionTester,
-                       val meter: ConnectionWorkerMeter = new ConnectionWorkerMeter) extends Thread {
+                       val meter: ConnectionWorkerMeter = new ConnectionWorkerMeter,
+                       val datasourceIndex: Int,
+                       val workerIndex: Int) extends Thread("QueuedDataSource %d worker %d".format(datasourceIndex, workerIndex)) {
 
   var stopped = false
   var runningTask = false

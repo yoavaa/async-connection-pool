@@ -4,10 +4,11 @@ import impl._
 import impl.ConnectionWorkerStatistics
 import java.sql.Connection
 import java.io.Closeable
-import java.util.concurrent.{RejectedExecutionException, BlockingQueue}
+import java.util.concurrent.{LinkedTransferQueue, RejectedExecutionException, BlockingQueue}
 import concurrent.Future
 import collection.immutable.Queue
 import collection.immutable
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  *
@@ -24,9 +25,13 @@ class QueuedDataSource(val driverClass: String,
                        val queue: BlockingQueue[ConnectionTask[_]],
                        val connectionTester: ConnectionTester,
                        val checkResizeInterval: Millis) extends AsyncDataSource with Closeable {
+
+
+  val workerIndexGenerator = new AtomicInteger()
+  val datasourceIndex: Int = QueuedDataSource.datasourceIndexGenerator.getAndIncrement
   var stopped = false
   var workers: Queue[ConnectionWorker] = Queue()
-  val manager = new AsyncDataSourceManager(resizeStrategy, workerStatistics _, resizeTo)
+  val manager = new AsyncDataSourceManager(resizeStrategy, workerStatistics _, resizeTo, datasourceIndex)
   init()
 
   def doWithConnection[T](task: (Connection) => T): Future[T] = {
@@ -62,16 +67,17 @@ class QueuedDataSource(val driverClass: String,
   private def resizeTo(toNum: Int) {
     synchronized({
       val currentSize = workers.size
-      if (toNum > currentSize) {
+      if (toNum < currentSize) {
         for (index <- toNum +1 to currentSize) {
           val worker = workers.head
           workers = workers.tail
           worker.shutdown()
         }
       }
-      else if (toNum < currentSize) {
+      else if (toNum > currentSize) {
         for (index <- currentSize + 1 to toNum) {
-          val worker: ConnectionWorker = new ConnectionWorker(queue, jdbcUrl, username, password, connectionTester)
+          val worker: ConnectionWorker = new ConnectionWorker(queue, jdbcUrl, username, password, connectionTester,
+            datasourceIndex = datasourceIndex, workerIndex = workerIndexGenerator.getAndIncrement)
           worker.start()
           workers = workers.enqueue(worker)
         }
@@ -89,5 +95,17 @@ class QueuedDataSource(val driverClass: String,
 
 
 object QueuedDataSource {
+  var datasourceIndexGenerator = new AtomicInteger()
 
+  def apply(driverClass: String,
+            jdbcUrl: String,
+            username: String,
+            password: String,
+            minPoolSize: Int,
+            maxPoolSize: Int): QueuedDataSource =
+    new QueuedDataSource(driverClass, jdbcUrl, username, password,
+      new WindowMovingAverageStrategy(minPoolSize, maxPoolSize, 10, 100, 0.6, 0.2),
+      new LinkedTransferQueue[ConnectionTask[_]](),
+      new DefaultConnectionTester,
+      10)
 }
