@@ -56,35 +56,64 @@ class WindowMovingAverageStrategy(val minPoolSize: Int,
   }
 
   def waitedAverage(seq: Seq[Load]): Double = {
-    val length = seq.length
+    var count = 0
     var sum: Double = 0
-    seq.foreach(load => {
-      sum = sum + load.percent * (load.workers) / currentSize
-    })
-    sum / length
+    seq foreach {load =>
+      load match {
+        case valueLoad: ValueLoad => {
+          sum = sum + valueLoad.percent * (valueLoad.workers) / currentSize
+          count = count + 1
+        }
+        case NaNLoad => {}
+      }
+    }
+    if (count > 0)
+      sum / count
+    else
+      Double.NaN
   }
 
   private[WindowMovingAverageStrategy] case class PoolSnapshot(workTime: Millis,
                           overheadTime: Millis,
                           sleepTime: Millis,
                           errorCount: Int,
-                          workers: Int) {
+                          workers: Int,
+                          operationals: Int) {
     def plus(that: ConnectionWorkerStatistics): PoolSnapshot = {
-      PoolSnapshot(workTime + that.workTime,
-        overheadTime + that.overheadTime,
-        sleepTime + that.sleepTime,
-        errorCount + that.errorCount,
-        workers + 1)
+      that match {
+        case stat: OperationalStatistics => {
+          PoolSnapshot(workTime + stat.workTime,
+            overheadTime + stat.overheadTime,
+            sleepTime + stat.sleepTime,
+            errorCount + stat.errorCount,
+            workers + 1,
+            operationals + 1)
+        }
+        case NonOperationalStatistics => {
+          PoolSnapshot(workTime,
+            overheadTime,
+            sleepTime,
+            errorCount,
+            workers + 1,
+            operationals)
+        }
+      }
     }
 
-    lazy val load: Load = Load(1.0 * (workTime + overheadTime) / (workTime + overheadTime + sleepTime), workers)
+    // todo - load function should take into account startup, current thread is sleeping and such
+    lazy val load: Load = operationals match {
+      case 0 => NaNLoad
+      case _ => ValueLoad(1.0 * (workTime + overheadTime) / (workTime + overheadTime + sleepTime), workers)
+    }
   }
 
   private[WindowMovingAverageStrategy] object PoolSnapshot {
-    def apply(): PoolSnapshot = this(0,0,0,0,0)
+    def apply(): PoolSnapshot = this(0,0,0,0,0,0)
   }
 
-  private[WindowMovingAverageStrategy] case class Load(percent: Double, workers: Int)
+  private[WindowMovingAverageStrategy] trait Load
+  private[WindowMovingAverageStrategy] case class ValueLoad(percent: Double, workers: Int) extends Load
+  private[WindowMovingAverageStrategy] case object NaNLoad extends Load
 
 }
 

@@ -1,6 +1,6 @@
 package com.wixpress.hoopoe.asyncjdbc.impl
 
-import org.scalatest.{BeforeAndAfter, FlatSpec}
+import org.scalatest.{FlatSpec}
 import org.scalatest.matchers.ShouldMatchers
 
 /**
@@ -103,5 +103,25 @@ class WindowMovingAverageStrategyTest extends FlatSpec with ShouldMatchers {
     strategy.calculateNewSize() should equal(5)
   }
 
-  def load(v: Int) = new ConnectionWorkerStatistics(v, 0, 100-v, 0)
+  "WindowMovingAverageStrategy (with non operational statistics)" should "consider non operational only for workers number" in {
+    val strategy = new WindowMovingAverageStrategy(2, 8, 3, 3, 0.8, 0.2)
+    strategy.addSnapshot(Seq(load(50), nonOperational()))
+    strategy.calculateNewSize() should equal(2)
+  }
+
+  it should "if having only non operational stats, should not changing pool size" in {
+    val strategy = new WindowMovingAverageStrategy(2, 8, 3, 3, 0.8, 0.2)
+    strategy.addSnapshot(Seq(nonOperational(), nonOperational(), nonOperational()))
+    strategy.calculateNewSize() should equal(3)
+  }
+
+  it should "having only non operations should not mask other snapshots" in {
+    val strategy = new WindowMovingAverageStrategy(2, 8, 3, 3, 0.8, 0.2)
+    strategy.addSnapshot(Seq(nonOperational(), nonOperational(), nonOperational()))
+    strategy.addSnapshot(Seq(load(10), load(10), load(10)))
+    strategy.calculateNewSize() should equal(2)
+  }
+
+  def load(v: Int) = new OperationalStatistics(v, 0, 100-v, 0)
+  def nonOperational() = NonOperationalStatistics
 }

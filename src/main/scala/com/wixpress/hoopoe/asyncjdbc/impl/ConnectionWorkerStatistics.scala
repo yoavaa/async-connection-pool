@@ -13,10 +13,19 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
 
   // thread-safe
   private val atomicCounters = new AtomicReference(new Counters)
+  private val operational = false;
   // non-thread-safe (no need to make it thread safe)
   private var lastWaitOnQueueStart: Millis = 0
   private var lastWaitOnQueueTime: Millis = 0
   private val lock = new ReentrantLock
+
+  def startMeter() {
+    flushState(State.overhead, false)
+  }
+
+  def closeMeter() {
+    flushState(State.shuttingDown, false)
+  }
 
   // thread-safe
   def startTask() {
@@ -47,15 +56,17 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
   def snapshot: ConnectionWorkerStatistics = {
     val currentCounter = snapshotCounter
     val now = timeSource()
-    var workingTime: Millis = currentCounter.workTime
-    var overheadTime: Millis = currentCounter.overheadTime
-    var sleepingTime: Millis = currentCounter.sleepTime
+    val workingTime: Millis = currentCounter.workTime
+    val overheadTime: Millis = currentCounter.overheadTime
+    val sleepingTime: Millis = currentCounter.sleepTime
+    val offSetTime: Long = now - currentCounter.lastStateChange
     currentCounter.state match {
-      case State.working => workingTime = workingTime + now - currentCounter.lastStateChange
-      case State.overhead => overheadTime = overheadTime + now - currentCounter.lastStateChange
-      case State.sleeping => sleepingTime = sleepingTime + now - currentCounter.lastStateChange
+      case State.working => OperationalStatistics(workingTime + offSetTime, overheadTime, sleepingTime, currentCounter.errorCount)
+      case State.overhead => OperationalStatistics(workingTime, overheadTime + offSetTime, sleepingTime, currentCounter.errorCount)
+      case State.sleeping => OperationalStatistics(workingTime, overheadTime, sleepingTime + offSetTime, currentCounter.errorCount)
+      case State.startup => NonOperationalStatistics
+      case State.shuttingDown => NonOperationalStatistics
     }
-    ConnectionWorkerStatistics(workingTime,overheadTime,sleepingTime,currentCounter.errorCount)
   }
 
   /**
@@ -102,6 +113,7 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
         case State.overhead => overheadTime = overheadTime + (now-counters.lastStateChange)
         case State.sleeping => sleepTime = sleepTime + (now-counters.lastStateChange)
         case State.working => workTime = workTime + (now-counters.lastStateChange)
+        case _ => {}
       }
       if (hasError)
         errorCount = errorCount + 1
@@ -111,20 +123,25 @@ class ConnectionWorkerMeter(val timeSource: () => Millis = () => System.currentT
 
   private[ConnectionWorkerMeter] object State extends Enumeration {
     type State = Value
-    val working, sleeping, overhead = Value
+    val working, sleeping, overhead, startup, shuttingDown = Value
   }
 
   private[ConnectionWorkerMeter] case class Counters(overheadTime: Millis = 0,
                                                      sleepTime: Millis = 0,
                                                      workTime: Millis = 0,
                                                      errorCount: Int = 0,
-                                                     state: State.State = State.overhead,
+                                                     state: State.State = State.startup,
                                                      lastStateChange: Millis = timeSource()
                                                       )
 
 }
 
-case class ConnectionWorkerStatistics(workTime: Millis,
-                                      overheadTime: Millis,
-                                      sleepTime: Millis,
-                                      errorCount: Int)
+trait ConnectionWorkerStatistics
+
+case class OperationalStatistics(workTime: Millis,
+                                 overheadTime: Millis,
+                                 sleepTime: Millis,
+                                 errorCount: Int) extends ConnectionWorkerStatistics
+
+case object NonOperationalStatistics extends ConnectionWorkerStatistics
+

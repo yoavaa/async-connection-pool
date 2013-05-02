@@ -25,6 +25,7 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
   // todo cancel support
   override def run() {
     var connStatus: ConnectionTry = aquireConnection()
+    meter.startMeter()
     while (!stopped) {
       val task = aquireTask()
       task.map({connTask =>
@@ -36,6 +37,7 @@ class ConnectionWorker(val queue: BlockingQueue[ConnectionTask[_]],
           connStatus = postTaskConnectionHook(connStatus)
         })
     }
+    meter.closeMeter()
     clearConnection(connStatus)
 
   }
